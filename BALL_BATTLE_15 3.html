@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BALL BATTLE 15</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:20px;font-family:Arial,sans-serif;text-align:center;color:#fff;background:linear-gradient(135deg,#071426,#102d4d)}
+h1{color:#ffd700;text-shadow:0 0 15px #ffd700;font-size:clamp(28px,7vw,40px)}
+#game{max-width:650px;margin:25px auto;padding:24px;background:#142b45;border:2px solid #ffd700;border-radius:20px;box-shadow:0 0 25px #0008}
+.stats{display:flex;justify-content:space-around;flex-wrap:wrap;gap:12px;color:#ffd700;font-weight:bold}
+#question{font-size:22px;min-height:65px;margin:25px 0}
+button{display:block;width:100%;padding:14px;margin:12px 0;border:0;border-radius:12px;background:#ffd700;color:#071426;font-size:17px;font-weight:bold;cursor:pointer;transition:.2s}
+button:hover{transform:scale(1.03);background:#fff06a}button:disabled{opacity:.75;cursor:default}
+#feedback{min-height:30px;font-size:18px;font-weight:bold;margin-top:15px}
+#nextBtn,#restartBtn{display:none;background:#20d878}
+#progress{height:12px;background:#334b63;border-radius:10px;overflow:hidden;margin:16px 0}
+#progressBar{height:100%;width:0;background:#ffd700;transition:width .4s}
+.small{color:#b8c9da;font-size:14px}
+#transition{display:none;position:fixed;inset:0;z-index:5;background:#061426ee;align-items:center;justify-content:center;flex-direction:column;font-size:27px;font-weight:bold;color:#ffd700;padding:20px}
+#football{font-size:85px;animation:kick 1.2s ease-in-out infinite alternate}
+@keyframes kick{from{transform:translateX(-80px) rotate(-30deg)}to{transform:translateX(80px) rotate(330deg)}}
+.correct{animation:glow .5s ease}@keyframes glow{50%{box-shadow:0 0 30px #20ff75}}
+.wrong{animation:shake .4s ease}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body>
+<h1>⚽ BALL BATTLE 15 ⚽</h1><p>Teste dein Fußballwissen!</p>
+<div id="game">
+ <div class="stats"><span id="level">Level 1</span><span id="score">Punkte: 0</span><span id="coins">🪙 Münzen: 0</span><span id="streak">🔥 Serie: 0</span></div>
+ <div id="progress"><div id="progressBar"></div></div>
+ <p class="small" id="questionNumber">Frage 1 von 20</p>
+ <div id="question">Lade Frage...</div><div id="answers"></div><div id="feedback"></div>
+ <button id="nextBtn" onclick="nextQuestion()">Weiter ➜</button>
+ <button id="restartBtn" onclick="restartGame()">Nochmal spielen 🔄</button>
+</div>
+<div id="transition"><div id="football">⚽</div><div id="transitionText">NÄCHSTE FRAGE!</div></div>
+<script>
+const questions=[
+["Wie viele Spieler stehen bei einer Mannschaft normalerweise auf dem Platz?",["9","10","11","12"],2],
+["Wie heißt das große Turnier der Nationalmannschaften?",["Champions League","Weltmeisterschaft","Bundesliga","DFB-Pokal"],1],
+["Welche Karte bedeutet Platzverweis?",["Gelb","Blau","Grün","Rot"],3],
+["Wie lange dauert ein reguläres Fußballspiel ohne Nachspielzeit?",["60 Minuten","80 Minuten","90 Minuten","100 Minuten"],2],
+["Wie nennt man drei Tore eines Spielers in einem Spiel?",["Doppelpack","Hattrick","Eigentor","Elfmeter"],1],
+["Welcher Verein spielt im Stadion Anfield?",["Manchester City","Liverpool","Chelsea","Arsenal"],1],
+["Wie heißt die Auszeichnung für den besten Torschützen einer WM?",["Goldener Schuh","Goldener Ball","Silberner Schuh","Goldener Handschuh"],0],
+["Wie viele Punkte gibt es für einen Sieg in der Bundesliga?",["1","2","3","4"],2],
+["Welches Land gewann die WM 2014?",["Argentinien","Brasilien","Deutschland","Spanien"],2],
+["Wie nennt man einen Pass, der direkt zu einer Torchance führt?",["Abstoß","Assist","Einwurf","Grätsche"],1],
+["Welcher Verein gewann 2020 die Champions League?",["Real Madrid","Bayern München","Paris Saint-Germain","Liverpool"],1],
+["Wie viele Minuten dauert eine Verlängerung normalerweise insgesamt?",["15","20","30","45"],2],
+["Welcher Spieler wird auch CR7 genannt?",["Lionel Messi","Neymar","Cristiano Ronaldo","Kylian Mbappé"],2],
+["Welches Land gewann die Europameisterschaft 2016?",["Frankreich","Portugal","Deutschland","Italien"],1],
+["Wie heißt der Torwart, der 2014 mit Deutschland Weltmeister wurde?",["Oliver Kahn","Marc-André ter Stegen","Manuel Neuer","Jens Lehmann"],2],
+["Welcher Verein hat den Spitznamen 'Die Königlichen'?",["FC Barcelona","Real Madrid","Juventus","AC Mailand"],1],
+["In welchem Jahr gewann Spanien erstmals die Fußball-WM?",["2006","2010","2014","2018"],1],
+["Welcher Spieler erzielte das berühmte 'Hand Gottes'-Tor?",["Pelé","Diego Maradona","Zinedine Zidane","Ronaldo"],1],
+["Welcher Verein gewann 1997 die Champions League?",["Borussia Dortmund","Bayern München","Manchester United","Ajax"],0],
+["Welches Land gewann die erste Fußball-Weltmeisterschaft 1930?",["Brasilien","Italien","Uruguay","Argentinien"],2]
+].map(([q,a,c])=>({q,a,correct:c}));
+let current=0,score=0,coins=0,streak=0,answered=false,lastAnswerCorrect=false;
+const $=id=>document.getElementById(id);
+function updateStats(){
+ $("score").textContent="Punkte: "+score;$("coins").textContent="🪙 Münzen: "+coins;$("streak").textContent="🔥 Serie: "+streak;
+ $("level").textContent=current>=20?"Geschafft!":"Level "+(Math.floor(current/5)+1);
+ $("progressBar").style.width=(current/20*100)+"%";
+}
+function showQuestion(){
+ answered=false;$("feedback").textContent="";$("nextBtn").style.display="none";$("answers").innerHTML="";
+ const q=questions[current];$("question").textContent=q.q;$("questionNumber").textContent=`Frage ${current+1} von 20`;
+ q.a.forEach((answer,index)=>{const b=document.createElement("button");b.textContent=answer;b.onclick=()=>checkAnswer(index,b);$("answers").appendChild(b)});
+ updateStats();
+}
+function checkAnswer(index,button){
+ if(answered)return;answered=true;const q=questions[current];const buttons=$("answers").querySelectorAll("button");buttons.forEach(b=>b.disabled=true);
+ if(index===q.correct){
+  lastAnswerCorrect=true;score+=100;coins+=10;streak++;
+  $("feedback").textContent=streak%3===0?"🔥 RICHTIG! +100 Punkte, +10 Münzen und 5 Serien-Bonus!":"✅ RICHTIG! +100 Punkte und +10 Münzen!";
+  if(streak%3===0)coins+=5;button.classList.add("correct");$("game").classList.add("correct");
+ }else{
+  lastAnswerCorrect=false;streak=0;$("feedback").textContent="❌ Leider falsch! Richtig wäre: "+q.a[q.correct];
+  button.classList.add("wrong");$("game").classList.add("wrong");
+ }
+ updateStats();$("nextBtn").style.display="block";$("nextBtn").textContent=current===19?"Ergebnis anzeigen 🏆":"Weiter ➜";
+ setTimeout(()=>$("game").classList.remove("correct","wrong"),600);
+}
+function nextQuestion(){if(!answered)return;if(current===19){showEndScreen();return}showTransition()}
+function showTransition(){
+ $("transitionText").textContent=!lastAnswerCorrect?"💪 WEITER GEHT'S – KOPF HOCH!":((current+1)%5===0?"🏆 LEVEL GESCHAFFT!":"⚽ NÄCHSTE FRAGE!");
+ $("transition").style.display="flex";setTimeout(()=>{$("transition").style.display="none";current++;showQuestion()},1500);
+}
+function showEndScreen(){
+ $("question").innerHTML=`🏆 SPIEL BEENDET!<br><br>Du hast ${score} Punkte erreicht!<br>🪙 Deine Münzen: ${coins}<br><br>${score>=1800?"Unglaublich! Du bist ein Fußball-Profi! ⚽":score>=1200?"Starke Leistung! Weiter so! 🔥":"Gut gespielt! Beim nächsten Mal knackst du deinen Rekord!"}`;
+ $("answers").innerHTML="";$("feedback").textContent="";$("nextBtn").style.display="none";$("restartBtn").style.display="block";
+ $("progressBar").style.width="100%";$("questionNumber").textContent="20 von 20 Fragen geschafft";$("level").textContent="🏆 Ende";
+}
+function restartGame(){current=0;score=0;coins=0;streak=0;answered=false;lastAnswerCorrect=false;$("restartBtn").style.display="none";$("nextBtn").style.display="none";showQuestion()}
+showQuestion();
+</script>
+</body>
+</html>
